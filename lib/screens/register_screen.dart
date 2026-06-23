@@ -39,6 +39,8 @@ await FirebaseFirestore.instance
   'cnic': cnicController.text.trim(),
   'email': emailController.text.trim(),
   'uid': userCredential.user!.uid,
+  'role': 'voter',
+  'createdAt': Timestamp.now(),
 });
 
 print("Firestore Success");

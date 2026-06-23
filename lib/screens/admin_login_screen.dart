@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-import 'register_screen.dart';
-import 'home_screen.dart';
 import 'admin_dashboard.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class AdminLoginScreen extends StatefulWidget {
+  const AdminLoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<AdminLoginScreen> createState() => _AdminLoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final TextEditingController emailController =
       TextEditingController();
 
@@ -22,17 +19,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool isLoading = false;
 
-  Future<void> loginUser() async {
+  Future<void> loginAdmin() async {
     try {
       setState(() {
         isLoading = true;
       });
 
       UserCredential userCredential =
-          await FirebaseAuth.instance
-              .signInWithEmailAndPassword(
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
+      );
+
+      print(
+        "Firebase UID: ${userCredential.user!.uid}",
       );
 
       final userDoc = await FirebaseFirestore.instance
@@ -40,32 +40,54 @@ class _LoginScreenState extends State<LoginScreen> {
           .doc(userCredential.user!.uid)
           .get();
 
-      if (!userDoc.exists) {
-        throw Exception("User data not found");
+      print("Document Exists: ${userDoc.exists}");
+
+      if (userDoc.exists) {
+        print(userDoc.data());
       }
 
-      String role = userDoc['role'];
+      if (!userDoc.exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("User data not found"),
+          ),
+        );
 
-      if (mounted) {
-        if (role == 'admin') {
+        setState(() {
+          isLoading = false;
+        });
+
+        return;
+      }
+
+      String role = userDoc['role'] ?? '';
+
+      print("Role: $role");
+
+      if (role == "admin") {
+        if (mounted) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) =>
-                  const AdminDashboard(),
-            ),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  const HomeScreen(),
+              builder: (_) => const AdminDashboard(),
             ),
           );
         }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "Access Denied. Admin Only.",
+            ),
+          ),
+        );
+
+        await FirebaseAuth.instance.signOut();
       }
     } on FirebaseAuthException catch (e) {
+      print(e.code);
+      print(e.message);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -74,6 +96,8 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } catch (e) {
+      print(e);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.toString()),
@@ -81,9 +105,11 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     }
 
-    setState(() {
-      isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   @override
@@ -97,49 +123,35 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFBEE9EA),
+      appBar: AppBar(
+        title: const Text("Admin Login"),
+      ),
       body: Center(
         child: Container(
-          width: 350,
+          width: 400,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(15),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 10,
-                offset: Offset(0, 5),
-              ),
-            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.how_to_vote,
-                size: 80,
-                color: Colors.blue,
-              ),
-
-              const SizedBox(height: 15),
-
               const Text(
-                "Blockchain Voting System",
-                textAlign: TextAlign.center,
+                "Admin Login",
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
               ),
 
-              const SizedBox(height: 25),
+              const SizedBox(height: 20),
 
               TextField(
                 controller: emailController,
                 decoration: const InputDecoration(
-                  labelText: "Email",
+                  labelText: "Admin Email",
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.email),
                 ),
               ),
 
@@ -151,7 +163,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: const InputDecoration(
                   labelText: "Password",
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock),
                 ),
               ),
 
@@ -159,33 +170,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
               SizedBox(
                 width: double.infinity,
-                height: 45,
                 child: ElevatedButton(
-                  onPressed:
-                      isLoading ? null : loginUser,
+                  onPressed: isLoading
+                      ? null
+                      : loginAdmin,
                   child: isLoading
                       ? const CircularProgressIndicator()
                       : const Text("Login"),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          const RegisterScreen(),
-                    ),
-                  );
-                },
-                child: const Text(
-                  "Create New Account",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
                 ),
               ),
             ],
